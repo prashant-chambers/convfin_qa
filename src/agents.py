@@ -1,6 +1,5 @@
 """Module containing agent configurations for financial analysis."""
 
-
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import AzureChatOpenAI

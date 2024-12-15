@@ -3,6 +3,8 @@
 import argparse
 import asyncio
 
+import mlflow
+import pandas as pd
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage
 
@@ -45,64 +47,94 @@ async def main(model: str, temperature: float, data_path: str, verbose: bool):
     # Load environment variables
     load_dotenv()
 
-    # Create agents and graph
-    generate, reflect, parser = FinancialAnalysisAgents.create_agents(
-        model=model, temperature=temperature
-    )
-    graph = FinancialAnalysisGraph.create_graph(generate, reflect)
+    mlflow.set_experiment("financial_qa")
 
-    # Process financial data
-    for idx, data in enumerate(load_financial_data(data_path)):
-        config = {"configurable": {"thread_id": f"{idx}"}}
+    with mlflow.start_run() as _:
+        mlflow.log_param("model", model)
+        mlflow.log_param("temperature", temperature)
+        mlflow.log_param("data_path", data_path)
 
-        # Prepare context
-        pre_text = convert_to_paragraph(data["pre_text"])
-        post_text = convert_to_paragraph(data["post_text"])
-        table = convert_to_markdown_table(data["table"])
+        # Create agents and graph
+        generate, reflect, parser = FinancialAnalysisAgents.create_agents(
+            model=model, temperature=temperature
+        )
+        graph = FinancialAnalysisGraph.create_graph(generate, reflect)
 
-        # Process questions
-        question_answer = []
-        for key in ["qa_0", "qa_1", "qa"]:
-            if data.get(key):
-                question_answer.append((data[key]["question"], data[key]["answer"]))
+        financial_analyst_message = (
+            generate.get_prompts()[0].messages[0].prompt.template
+        )
+        critic_message = reflect.get_prompts()[0].messages[0].prompt.template
 
-        # Analyze each question
-        for question, expected_answer in question_answer:
-            user_proxy_message = load_prompt_template(
-                "user_proxy",
-                question=question,
-                pre_text=pre_text,
-                table=table,
-                post_text=post_text,
-            )
-            response = await graph.ainvoke(
-                {
-                    "messages": [HumanMessage(content=user_proxy_message)],
-                },
-                config,
-            )
+        mlflow.log_param("financial_analyst_message", financial_analyst_message)
+        mlflow.log_param("critic_message", critic_message)
 
-            # Filter messages with json from Agent conversation
-            ai_messages = [
-                x.content
-                for x in response["messages"]
-                if isinstance(x, AIMessage) and x.content.__contains__("json")
-            ]
+        records = []
 
-            # Select final json message from AI
-            if len(ai_messages) >= 1:
-                content = ai_messages[-1]
-                parsed_content = parser.parse(fix_invalid_json(content))
-                if verbose:
-                    print(f"Record ID: {data['id']}")
-                    print(f"Question: {question}")
-                    print(f"Expected Answer: {expected_answer}")
-                    print(f"Generated Answer: {parsed_content['answer']}")
-                    print("-" * 50)
+        # Process financial data
+        for idx, data in enumerate(load_financial_data(data_path)):
+            config = {"configurable": {"thread_id": f"{idx}"}}
 
-        # Optional: Break after processing a few records for testing
-        if idx == 5:
-            break
+            # Prepare context
+            pre_text = convert_to_paragraph(data["pre_text"])
+            post_text = convert_to_paragraph(data["post_text"])
+            table = convert_to_markdown_table(data["table"])
+
+            # Process questions
+            question_answer = []
+            for key in ["qa_0", "qa_1", "qa"]:
+                if data.get(key):
+                    question_answer.append((data[key]["question"], data[key]["answer"]))
+
+            # Analyze each question
+            for question, ground_truth in question_answer:
+                user_proxy_message = load_prompt_template(
+                    "user_proxy",
+                    question=question,
+                    pre_text=pre_text,
+                    table=table,
+                    post_text=post_text,
+                )
+
+                response = await graph.ainvoke(
+                    {
+                        "messages": [HumanMessage(content=user_proxy_message)],
+                    },
+                    config,
+                )
+
+                # Filter messages with json from Agent conversation
+                ai_messages = [
+                    x.content
+                    for x in response["messages"]
+                    if isinstance(x, AIMessage) and x.content.__contains__("json")
+                ]
+
+                # Select final json message from AI
+                if len(ai_messages) >= 1:
+                    content = ai_messages[-1]
+                    parsed_content = parser.parse(fix_invalid_json(content))
+                    _id = data["id"]
+                    prediction = parsed_content["answer"]
+                    if verbose:
+                        print(f"Record ID: {_id}")
+                        print(f"Question: {question}")
+                        print(f"Expected Answer: {ground_truth}")
+                        print(f"Generated Answer: {prediction}")
+                        print("-" * 50)
+                    records.append(
+                        {
+                            "id": _id,
+                            "question": question,
+                            "ground_truth": ground_truth,
+                            "prediction": prediction,
+                        }
+                    )
+
+            # Optional: Break after processing a few records for testing
+            if idx == 2:
+                break
+
+        mlflow.log_table(pd.DataFrame(records), "output.json")
 
 
 if __name__ == "__main__":
