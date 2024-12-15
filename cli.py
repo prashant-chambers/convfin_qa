@@ -1,5 +1,6 @@
 """Main script for running financial analysis workflow."""
 
+import argparse
 import asyncio
 
 from dotenv import load_dotenv
@@ -15,19 +16,38 @@ from src.data_loader import load_financial_data, load_prompt_template
 from src.graph import FinancialAnalysisGraph
 
 
-async def main():
+def temperature_range(value: str) -> float:
+    """
+    Validate that the temperature is between 0.0 and 1.0.
+    """
+    try:
+        temp = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"'{value}' is not a valid float.")
+
+    if not (0.0 <= temp <= 1.0):
+        raise argparse.ArgumentTypeError(
+            f"Temperature must be between 0.0 and 1.0, got {value}."
+        )
+
+    return temp
+
+
+async def main(model: str, temperature: float, data_path: str, verbose: bool):
     """
     Main async function to run financial analysis workflow.
     """
+
+    print(f"Running model: {model}")
+    print(f"Temperature: {temperature}")
+    print(f"Data Path: {data_path}")
+
     # Load environment variables
     load_dotenv()
 
-    # Data
-    data_path = "data/train.json"
-
     # Create agents and graph
     generate, reflect, parser = FinancialAnalysisAgents.create_agents(
-        model="gpt-4o-mini"
+        model=model, temperature=temperature
     )
     graph = FinancialAnalysisGraph.create_graph(generate, reflect)
 
@@ -73,11 +93,12 @@ async def main():
             if len(ai_messages) >= 1:
                 content = ai_messages[-1]
                 parsed_content = parser.parse(fix_invalid_json(content))
-                print(f"Record ID: {data['id']}")
-                print(f"Question: {question}")
-                print(f"Expected Answer: {expected_answer}")
-                print(f"Generated Answer: {parsed_content['answer']}")
-                print("-" * 50)
+                if verbose:
+                    print(f"Record ID: {data['id']}")
+                    print(f"Question: {question}")
+                    print(f"Expected Answer: {expected_answer}")
+                    print(f"Generated Answer: {parsed_content['answer']}")
+                    print("-" * 50)
 
         # Optional: Break after processing a few records for testing
         if idx == 5:
@@ -85,4 +106,27 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(
+        description="Run a model with specific parameters asynchronously."
+    )
+
+    # Add arguments
+    parser.add_argument(
+        "--model", type=str, required=True, help="The name of the model to use."
+    )
+    parser.add_argument(
+        "--temperature",
+        type=temperature_range,
+        required=True,
+        help="The temperature setting (must be between 0.0 and 1.0).",
+    )
+    parser.add_argument(
+        "--data-path", type=str, required=True, help="The path to the input data."
+    )
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose mode.")
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    # Pass parsed arguments to the async function
+    asyncio.run(main(args.model, args.temperature, args.data_path, args.verbose))
