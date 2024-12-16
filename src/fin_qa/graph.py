@@ -2,13 +2,13 @@
 
 from typing import Annotated, TypedDict
 
-import mlflow
+# import mlflow
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
-mlflow.langchain.autolog()
+# mlflow.langchain.autolog()
 
 
 class State(TypedDict):

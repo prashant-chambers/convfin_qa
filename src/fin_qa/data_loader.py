@@ -7,7 +7,7 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
 
-current_dir = Path(__file__).parent
+current_dir = Path(__file__).parent.parent
 prompt_dir = str(current_dir.parent / "prompts")
 environment = Environment(loader=FileSystemLoader(prompt_dir), autoescape=True)
 

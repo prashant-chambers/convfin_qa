@@ -5,7 +5,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import AzureChatOpenAI
 from pydantic import BaseModel, Field
 
-from src.data_loader import load_prompt_template
+from src.fin_qa.data_loader import load_prompt_template
 
 STOP_AFTER_ATTEMPT = 3
 WAIT_EXPONENTIAL_JITTER = True

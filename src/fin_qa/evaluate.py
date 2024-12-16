@@ -4,16 +4,14 @@ from difflib import SequenceMatcher
 
 
 def extract_number(string):
-    # Regular expression to match a single integer, decimal, or negative number
-    number_pattern = r"-?\d+\.?\d*"
-    # Search for the first match
+    number_pattern = r"-?(?:\$)?[\d,]+\.?\d*"
     match = re.search(number_pattern, string)
     if match:
-        number = match.group()
+        # Remove currency symbol and commas
+        number_str = match.group().replace("$", "").replace(",", "")
+
         # Convert to float or int
-        return float(number) if "." in number else int(number)
-    else:
-        raise ValueError("No number found in the string")
+        return float(number_str) if "." in number_str else int(number_str)
 
 
 def exact_match(ground_truth: str, prediction: str):
@@ -27,7 +25,7 @@ def numerical_match_with_units(ground_truth: str, prediction: str):
 
     # Extract numerical values and units
     ground_truth_value = str(extract_number(ground_truth))  # Value without units
-    ground_truth_unit = ground_truth.lstrip("0123456789.-").strip()  # Extract unit
+    ground_truth_unit = ground_truth.strip("0123456789.-").strip()  # Extract unit
 
     # Fail fast if the ground truth unit is not in prediction
     if ground_truth_unit:
@@ -49,7 +47,7 @@ def numerical_match_with_units(ground_truth: str, prediction: str):
         decimal_places = len(ground_truth_value.split(".")[1])
         processed_prediction = round(prediction_float, decimal_places)
     else:
-        processed_prediction = int(prediction_float)
+        processed_prediction = round(prediction_float)
 
     # Match the processed prediction against the ground truth
     return math.isclose(ground_truth_float, processed_prediction, rel_tol=1e-1)
