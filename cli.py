@@ -7,6 +7,7 @@ import mlflow
 import pandas as pd
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage
+from tqdm import tqdm
 
 from src.agents import FinancialAnalysisAgents
 from src.data_conversion import (
@@ -15,6 +16,7 @@ from src.data_conversion import (
     fix_invalid_json,
 )
 from src.data_loader import load_financial_data, load_prompt_template
+from src.evaluate import exact_match, numerical_match_with_units
 from src.graph import FinancialAnalysisGraph
 
 
@@ -71,7 +73,7 @@ async def main(model: str, temperature: float, data_path: str, verbose: bool):
         records = []
 
         # Process financial data
-        for idx, data in enumerate(load_financial_data(data_path)):
+        for idx, data in tqdm(enumerate(load_financial_data(data_path))):
             config = {"configurable": {"thread_id": f"{idx}"}}
 
             # Prepare context
@@ -131,10 +133,41 @@ async def main(model: str, temperature: float, data_path: str, verbose: bool):
                     )
 
             # Optional: Break after processing a few records for testing
-            if idx == 2:
+            if idx == 10:
                 break
 
-        mlflow.log_table(pd.DataFrame(records), "output.json")
+        # Dataframe with question, ground_truth, and prediction
+        output_df = pd.DataFrame(records)
+
+        # Lambda for applying exact match
+        em = lambda row: exact_match(row["ground_truth"], row["prediction"])
+
+        # Lambda for applying numerical match with units
+        nm = lambda row: numerical_match_with_units(
+            row["ground_truth"], row["prediction"]
+        )
+
+        # Add evaluation metrics to output dataframe
+        output_cols = ["ground_truth", "prediction"]
+        output_df["exact_match"] = output_df[output_cols].apply(em, axis=1)
+        output_df["numerical_match_with_units"] = output_df[output_cols].apply(
+            nm, axis=1
+        )
+
+        # Compute metrics
+        exact_match_percentage = (output_df["exact_match"].mean()) * 100
+        numerical_match_percentage = (
+            output_df["numerical_match_with_units"].mean()
+        ) * 100
+
+        # Log metrics
+        mlflow.log_metric("exact_match", round(exact_match_percentage, 2))
+        mlflow.log_metric(
+            "numerical_match_with_units", round(numerical_match_percentage, 2)
+        )
+
+        # Log data
+        mlflow.log_table(output_df, "output.json")
 
 
 if __name__ == "__main__":
