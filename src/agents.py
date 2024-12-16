@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field
 
 from src.data_loader import load_prompt_template
 
+STOP_AFTER_ATTEMPT = 3
+WAIT_EXPONENTIAL_JITTER = True
+
 
 class StepsAndAnswer(BaseModel):
     """
@@ -76,7 +79,14 @@ class FinancialAnalysisAgents:
 
         parser = JsonOutputParser(pydantic_object=StepsAndAnswer)
 
-        generate = cls.get_financial_analyst_prompt() | llm
-        reflect = cls.get_critic_prompt() | llm
+        generate = cls.get_financial_analyst_prompt() | llm.with_retry(
+            stop_after_attempt=STOP_AFTER_ATTEMPT,
+            wait_exponential_jitter=WAIT_EXPONENTIAL_JITTER,
+        )
+
+        reflect = cls.get_critic_prompt() | llm.with_retry(
+            stop_after_attempt=STOP_AFTER_ATTEMPT,
+            wait_exponential_jitter=WAIT_EXPONENTIAL_JITTER,
+        )
 
         return generate, reflect, parser
