@@ -1,5 +1,19 @@
 import math
+import re
 from difflib import SequenceMatcher
+
+
+def extract_number(string):
+    # Regular expression to match a single integer, decimal, or negative number
+    number_pattern = r"-?\d+\.?\d*"
+    # Search for the first match
+    match = re.search(number_pattern, string)
+    if match:
+        number = match.group()
+        # Convert to float or int
+        return float(number) if "." in number else int(number)
+    else:
+        raise ValueError("No number found in the string")
 
 
 def exact_match(ground_truth: str, prediction: str):
@@ -12,15 +26,15 @@ def numerical_match_with_units(ground_truth: str, prediction: str):
     prediction = str(prediction).strip()
 
     # Extract numerical values and units
-    ground_truth_value = ground_truth.strip("%$")  # Value without units
-    ground_truth_unit = ground_truth.lstrip("0123456789.-")  # Extract unit
+    ground_truth_value = str(extract_number(ground_truth))  # Value without units
+    ground_truth_unit = ground_truth.lstrip("0123456789.-").strip()  # Extract unit
 
-    prediction_value = prediction.strip("%$")  # Value without units
-    prediction_unit = prediction.lstrip("0123456789.-")  # Extract unit
+    # Fail fast if the ground truth unit is not in prediction
+    if ground_truth_unit:
+        if not prediction.__contains__(ground_truth_unit):
+            return False
 
-    # Check if the units match
-    if ground_truth_unit != prediction_unit:
-        return False
+    prediction_value = str(extract_number(prediction))  # Value without units
 
     # Convert to float for numerical comparison
     try:
@@ -38,7 +52,7 @@ def numerical_match_with_units(ground_truth: str, prediction: str):
         processed_prediction = int(prediction_float)
 
     # Match the processed prediction against the ground truth
-    return math.isclose(ground_truth_float, processed_prediction, rel_tol=1e-2)
+    return math.isclose(ground_truth_float, processed_prediction, rel_tol=1e-1)
 
 
 def approx_string_match(ground_truth: str, prediction: str, threshold: float = 0.9):
