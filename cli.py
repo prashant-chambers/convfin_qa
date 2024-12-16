@@ -8,15 +8,18 @@ import pandas as pd
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage
 
-from src.agents import FinancialAnalysisAgents
-from src.data_conversion import (
+from src.fin_qa import setup_logger
+from src.fin_qa.agents import FinancialAnalysisAgents
+from src.fin_qa.data_conversion import (
     convert_to_markdown_table,
     convert_to_paragraph,
     fix_invalid_json,
 )
-from src.data_loader import load_financial_data, load_prompt_template
-from src.evaluate import exact_match, numerical_match_with_units
-from src.graph import FinancialAnalysisGraph
+from src.fin_qa.data_loader import load_financial_data, load_prompt_template
+from src.fin_qa.evaluate import exact_match, numerical_match_with_units
+from src.fin_qa.graph import FinancialAnalysisGraph
+
+logger = setup_logger(__file__)
 
 
 def temperature_range(value: str) -> float:
@@ -73,7 +76,11 @@ async def main(model: str, temperature: float, data_path: str, n: int, verbose: 
 
         # Process financial data
         for idx, data in enumerate(load_financial_data(data_path)):
-            config = {"configurable": {"thread_id": f"{idx}"}}
+            logger.info(f"Answering question #{idx + 1} of {n}")
+
+            config = {
+                "configurable": {"thread_id": f"{idx}"},
+            }
 
             # Prepare context
             pre_text = convert_to_paragraph(data["pre_text"])
@@ -117,11 +124,11 @@ async def main(model: str, temperature: float, data_path: str, n: int, verbose: 
                     _id = data["id"]
                     prediction = parsed_content["answer"]
                     if verbose:
-                        print(f"Record ID: {_id}")
-                        print(f"Question: {question}")
-                        print(f"Expected Answer: {ground_truth}")
-                        print(f"Generated Answer: {prediction}")
-                        print("-" * 50)
+                        logger.info(f"Record ID: {_id}")
+                        logger.info(f"Question: {question}")
+                        logger.info(f"Expected Answer: {ground_truth}")
+                        logger.info(f"Generated Answer: {prediction}")
+                        logger.info("-" * 50)
                     records.append(
                         {
                             "id": _id,
@@ -132,8 +139,10 @@ async def main(model: str, temperature: float, data_path: str, n: int, verbose: 
                     )
 
             # Break after processing n records
-            if idx == n:
+            if idx == n - 1:
                 break
+
+        logger.info("Running evaluations")
 
         # Dataframe with question, ground_truth, and prediction
         output_df = pd.DataFrame(records)
@@ -155,9 +164,12 @@ async def main(model: str, temperature: float, data_path: str, n: int, verbose: 
 
         # Compute metrics
         exact_match_percentage = (output_df["exact_match"].mean()) * 100
+        logger.info(f"Exact Match: {exact_match_percentage}%")
+
         numerical_match_percentage = (
             output_df["numerical_match_with_units"].mean()
         ) * 100
+        logger.info(f"Numerical Match: {numerical_match_percentage}%")
 
         # Log metrics
         mlflow.log_metric("exact_match", round(exact_match_percentage, 2))
