@@ -47,18 +47,3 @@ def fix_invalid_json(json_string):
     # Replace single quotes with double quotes
     json_string = json_string.replace("'", '"')
     return json_string
-
-
-def process_generated_answer(expected_answer: str, generated_answer: str):
-    # Convert to string to determine decimal places
-    expected_str = str(expected_answer).strip("%$")
-    generated_value = float(str(generated_answer).strip("%$"))
-
-    # Find decimal places in the expected answer
-    if "." in expected_str:
-        decimal_places = len(expected_str.split(".")[-1])
-        rounded_generated = round(generated_value, decimal_places)
-    else:
-        rounded_generated = int(float(generated_value))
-
-    return rounded_generated
