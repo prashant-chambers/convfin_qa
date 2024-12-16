@@ -7,7 +7,6 @@ import mlflow
 import pandas as pd
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage
-from tqdm import tqdm
 
 from src.agents import FinancialAnalysisAgents
 from src.data_conversion import (
@@ -37,7 +36,7 @@ def temperature_range(value: str) -> float:
     return temp
 
 
-async def main(model: str, temperature: float, data_path: str, verbose: bool):
+async def main(model: str, temperature: float, data_path: str, n: int, verbose: bool):
     """
     Main async function to run financial analysis workflow.
     """
@@ -73,7 +72,7 @@ async def main(model: str, temperature: float, data_path: str, verbose: bool):
         records = []
 
         # Process financial data
-        for idx, data in tqdm(enumerate(load_financial_data(data_path))):
+        for idx, data in enumerate(load_financial_data(data_path)):
             config = {"configurable": {"thread_id": f"{idx}"}}
 
             # Prepare context
@@ -132,8 +131,8 @@ async def main(model: str, temperature: float, data_path: str, verbose: bool):
                         }
                     )
 
-            # Optional: Break after processing a few records for testing
-            if idx == 10:
+            # Break after processing n records
+            if idx == n:
                 break
 
         # Dataframe with question, ground_truth, and prediction
@@ -188,10 +187,21 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data-path", type=str, required=True, help="The path to the input data."
     )
+
+    parser.add_argument(
+        "--n",
+        type=int,
+        default=10,
+        required=False,
+        help="Number of records to be processed.",
+    )
+
     parser.add_argument("--verbose", action="store_true", help="Enable verbose mode.")
 
     # Parse arguments
     args = parser.parse_args()
 
     # Pass parsed arguments to the async function
-    asyncio.run(main(args.model, args.temperature, args.data_path, args.verbose))
+    asyncio.run(
+        main(args.model, args.temperature, args.data_path, args.n, args.verbose)
+    )
