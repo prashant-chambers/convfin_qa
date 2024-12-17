@@ -1,0 +1,30 @@
+services:
+  cli-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.cli
+    container_name: cli_app
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_ARTIFACT_ROOT: /app/mlruns
+      ARTIFACTS_PATH: /app/mlruns
+    volumes:
+      - ./mlruns:/app/mlruns
+    depends_on:
+      - mlflow
+    env_file:
+      - .env
+    command: ["--model", "gpt-4o-mini", "--temperature", "0.0", "--data-path", "/app/data/train.json", "--n", "2", "--verbose"]
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    container_name: mlflow_server
+    environment:
+      MLFLOW_TRACKING_URI: http://0.0.0.0:5000
+      MLFLOW_ARTIFACT_ROOT: /app/mlruns
+    volumes:
+      - ./mlruns:/app/mlruns
+    ports:
+      - "5000:5000"
