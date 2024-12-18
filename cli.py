@@ -140,9 +140,18 @@ def main(model: str, temperature: float, data_path: str, n: int, verbose: bool):
                 if len(ai_messages) >= 1:
                     content = ai_messages[-1]
                     # parsed_content = parser.parse(fix_invalid_json(content))
-                    parsed_content = parser.parse_with_prompt(
-                        fix_invalid_json(content), prompt_value
-                    )
+                    try:
+                        parsed_content = parser.parse_with_prompt(
+                            fix_invalid_json(content), prompt_value
+                        )
+                    except BadRequestError as e:
+                        logger.error(
+                            f"An unexpected BadRequestError occurred for request {data['id']}: {e}"
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"An unexpected error occurred for request {data['id']}: {e}"
+                        )
                     _id = data["id"]
                     prediction = parsed_content.get("answer", 0)
                     if verbose:
