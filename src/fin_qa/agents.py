@@ -74,7 +74,7 @@ class FinancialAnalysisAgents:
             temperature (float, optional): Sampling temperature. Defaults to 0.0.
 
         Returns:
-            Tuple containing generator and reflection agents.
+            Tuple containing parser, generator, and reflection agents.
         """
         llm = AzureChatOpenAI(model=model, temperature=temperature)
 

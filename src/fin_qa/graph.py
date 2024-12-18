@@ -16,7 +16,7 @@ class State(TypedDict):
     State dictionary for the workflow graph.
 
     Attributes:
-        messages (List[Message]): List of messages in the conversation.
+        messages (list[Message]): List of messages in the conversation.
     """
 
     messages: Annotated[list, add_messages]

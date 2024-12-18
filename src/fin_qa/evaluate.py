@@ -1,9 +1,22 @@
 import math
 import re
-from difflib import SequenceMatcher
 
 
 def extract_number(string):
+    """Extracts the first number from a string, handling currency and comma formatting.
+
+    Args:
+        string: Input string containing a number, optionally with currency symbol and commas.
+
+    Returns:
+        float: The extracted number value. Returns 0 if no valid number is found.
+
+    Example:
+        >>> extract_number("$1,234.56")
+        1234.56
+        >>> extract_number("Revenue: -123,456")
+        -123456
+    """
     number_pattern = r"-?(?:\$)?[\d,]+\.?\d*"
     match = re.search(number_pattern, string)
     if match:
@@ -19,52 +32,33 @@ def extract_number(string):
 
 
 def exact_match(ground_truth: str, prediction: str):
+    """Checks if prediction exactly matches the ground truth string.
+
+    Args:
+        ground_truth: The expected correct string.
+        prediction: The predicted string to compare.
+
+    Returns:
+        bool: True if strings match exactly, False otherwise.
+    """
     return ground_truth == prediction
 
 
 def numerical_match(ground_truth: str, prediction: str):
+    """Compares numerical values extracted from strings within a tolerance.
+
+    Args:
+        ground_truth: String containing the expected correct number.
+        prediction: String containing the predicted number.
+
+    Returns:
+        bool: True if numbers match within tolerance, False otherwise.
+
+    Note:
+        Uses absolute tolerance of 0.5 to allow for minor rounding differences.
+    """
     ground_truth = extract_number(str(ground_truth).strip())
-    ground_truth_value = float(ground_truth)
+    ground_truth_value = float(ground_truth) if ground_truth else 0
     prediction = extract_number(str(prediction).strip())
-    prediction_value = float(prediction)
-    return math.isclose(ground_truth_value, prediction_value, rel_tol=1e-1)
-
-
-def numerical_match_with_units(ground_truth: str, prediction: str):
-    # Strip whitespace and identify the units
-    ground_truth = str(ground_truth).strip()
-    prediction = str(prediction).strip()
-
-    # Extract numerical values and units
-    ground_truth_value = str(extract_number(ground_truth))  # Value without units
-    ground_truth_unit = ground_truth.strip("0123456789.-").strip()  # Extract unit
-
-    # Fail fast if the ground truth unit is not in prediction
-    if ground_truth_unit:
-        if not prediction.__contains__(ground_truth_unit):
-            return False
-
-    prediction_value = str(extract_number(prediction))  # Value without units
-
-    # Convert to float for numerical comparison
-    try:
-        ground_truth_float = float(ground_truth_value)
-        prediction_float = float(prediction_value)
-    except ValueError:
-        # If conversion fails, return False (invalid numeric values)
-        return False
-
-    # Determine decimal places in the ground truth
-    if "." in ground_truth_value:
-        decimal_places = len(ground_truth_value.split(".")[1])
-        processed_prediction = round(prediction_float, decimal_places)
-    else:
-        processed_prediction = round(prediction_float)
-
-    # Match the processed prediction against the ground truth
-    return math.isclose(ground_truth_float, processed_prediction, rel_tol=1e-1)
-
-
-def approx_string_match(ground_truth: str, prediction: str, threshold: float = 0.9):
-    similarity = SequenceMatcher(None, ground_truth, prediction).ratio()
-    return similarity >= threshold
+    prediction_value = float(prediction) if prediction else 0
+    return math.isclose(ground_truth_value, prediction_value, rel_tol=0, abs_tol=0.5)

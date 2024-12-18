@@ -6,7 +6,7 @@ def convert_to_markdown_table(data: list[list[str | int | float]]) -> str:
     Convert a 2D list to a markdown-formatted table.
 
     Args:
-        data (List[List[Union[str, int, float]]]): 2D list of data to convert.
+        data (list[list[str | int | float]]): 2D list of data to convert.
 
     Returns:
         str: Markdown-formatted table.
@@ -35,7 +35,7 @@ def convert_to_paragraph(data: list[str]) -> str:
     Convert a list of strings to a single paragraph.
 
     Args:
-        data (List[str]): List of strings to join.
+        data (list[str]): List of strings to join.
 
     Returns:
         str: Joined paragraph.

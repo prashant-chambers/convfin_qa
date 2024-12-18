@@ -20,7 +20,7 @@ def load_financial_data(file_path: str) -> Generator[dict[str, Any]]:
         file_path (str): Path to the JSON file containing financial data.
 
     Yields:
-        Dict[str, Any]: Individual financial data records.
+        dict[str, Any]: Individual financial data records.
     """
     try:
         with open(file_path, encoding="utf-8") as file:
@@ -32,7 +32,19 @@ def load_financial_data(file_path: str) -> Generator[dict[str, Any]]:
 
 
 def load_prompt_template(template_name: str, **kwargs):
-    """Loads and renders prompt from a template"""
+    """Loads and renders a prompt template.
+
+    Args:
+        template_name (str): Name of the template file without extension.
+        **kwargs: Keyword arguments to pass to the template renderer.
+
+    Returns:
+        str: The rendered prompt template content.
+
+    Raises:
+        TemplateNotFound: If template file does not exist.
+        TemplateError: If there are syntax errors in template.
+    """
     template = environment.get_template(f"{template_name}.j2")
     content = template.render(**kwargs)
     return content
