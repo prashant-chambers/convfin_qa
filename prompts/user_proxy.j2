@@ -13,10 +13,22 @@ Question: {{question}}
 Do not provide any justification, just the output in a valid JSON format that adheres to the following schema:
 
 {% raw %}
-```json
 {{
-    "steps": ["show your calculation steps"], 
-    "answer": "final numerical answer"
+    "type": "object",
+    "properties": {{
+        "steps": {{
+            "type": "array",
+            "items": {{
+                "type": "string"
+            }},
+            "description": "Show your calculation steps as a list of strings."
+        }},
+        "answer": {{
+            "type": "number",
+            "description": "The final numerical answer."
+        }}
+    }},
+    "required": ["steps", "answer"],
+    "additionalProperties": false
 }}
-```
 {% endraw %}
