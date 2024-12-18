@@ -2,6 +2,7 @@
 line-length = 88
 exclude = ["tests", ".venv"]
 target-version = "py310"
+extend-ignore = ["C901"]
 
 [tool.ruff.lint]
 select = [
