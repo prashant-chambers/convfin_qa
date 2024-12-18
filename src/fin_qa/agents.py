@@ -1,5 +1,6 @@
 """Module containing agent configurations for financial analysis."""
 
+from langchain.output_parsers import RetryOutputParser
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import AzureChatOpenAI
@@ -78,6 +79,7 @@ class FinancialAnalysisAgents:
         llm = AzureChatOpenAI(model=model, temperature=temperature)
 
         parser = JsonOutputParser(pydantic_object=StepsAndAnswer)
+        retry_parser = RetryOutputParser.from_llm(parser=parser, llm=llm)
 
         generate = cls.get_financial_analyst_prompt() | llm.with_retry(
             stop_after_attempt=STOP_AFTER_ATTEMPT,
@@ -89,4 +91,4 @@ class FinancialAnalysisAgents:
             wait_exponential_jitter=WAIT_EXPONENTIAL_JITTER,
         )
 
-        return generate, reflect, parser
+        return generate, reflect, retry_parser
