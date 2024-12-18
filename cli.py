@@ -1,7 +1,6 @@
 """Main script for running financial analysis workflow."""
 
 import argparse
-import asyncio
 import time
 
 import mlflow
@@ -20,7 +19,7 @@ from src.fin_qa.data_conversion import (
     fix_invalid_json,
 )
 from src.fin_qa.data_loader import load_financial_data, load_prompt_template
-from src.fin_qa.evaluate import exact_match, numerical_match_with_units
+from src.fin_qa.evaluate import exact_match, numerical_match
 from src.fin_qa.graph import FinancialAnalysisGraph
 
 logger = setup_logger(__file__)
@@ -43,7 +42,7 @@ def temperature_range(value: str) -> float:
     return temp
 
 
-async def main(model: str, temperature: float, data_path: str, n: int, verbose: bool):
+def main(model: str, temperature: float, data_path: str, n: int, verbose: bool):
     """
     Main async function to run financial analysis workflow.
     """
@@ -110,7 +109,7 @@ async def main(model: str, temperature: float, data_path: str, n: int, verbose: 
                 start = time.perf_counter()
 
                 try:
-                    response = await graph.ainvoke(
+                    response = graph.invoke(
                         {
                             "messages": [HumanMessage(content=user_proxy_message)],
                         },
@@ -131,9 +130,7 @@ async def main(model: str, temperature: float, data_path: str, n: int, verbose: 
 
                 # Filter messages with json from Agent conversation
                 ai_messages = [
-                    x.content
-                    for x in response["messages"]
-                    if isinstance(x, AIMessage) and x.content.__contains__("```json")
+                    x.content for x in response["messages"] if isinstance(x, AIMessage)
                 ]
 
                 prompt_value = PromptTemplate(
@@ -177,23 +174,19 @@ async def main(model: str, temperature: float, data_path: str, n: int, verbose: 
         em = lambda row: exact_match(row["ground_truth"], row["prediction"])
 
         # Lambda for applying numerical match with units
-        nm = lambda row: numerical_match_with_units(
-            row["ground_truth"], row["prediction"]
-        )
+        nm = lambda row: numerical_match(row["ground_truth"], row["prediction"])
 
         # Add evaluation metrics to output dataframe
         output_cols = ["ground_truth", "prediction"]
         output_df["exact_match"] = output_df[output_cols].apply(em, axis=1)
-        output_df["numerical_match_with_units"] = output_df[output_cols].apply(
-            nm, axis=1
-        )
+        output_df["numerical_match"] = output_df[output_cols].apply(nm, axis=1)
 
         # Compute metrics
         exact_match_percentage = round((output_df["exact_match"].mean()) * 100, 2)
         logger.info(f"Exact Match: {exact_match_percentage}%")
 
         numerical_match_percentage = round(
-            (output_df["numerical_match_with_units"].mean()) * 100, 2
+            (output_df["numerical_match"].mean()) * 100, 2
         )
         logger.info(f"Numerical Match: {numerical_match_percentage}%")
 
@@ -210,7 +203,7 @@ async def main(model: str, temperature: float, data_path: str, n: int, verbose: 
 
         # Log metrics
         mlflow.log_metric("exact_match", exact_match_percentage)
-        mlflow.log_metric("numerical_match_with_units", numerical_match_percentage)
+        mlflow.log_metric("numerical_match", numerical_match_percentage)
         mlflow.log_metric("mean_latency", mean_latency)
         mlflow.log_metric("min_latency", min_latency)
         mlflow.log_metric("max_latency", max_latency)
@@ -259,6 +252,4 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     # Pass parsed arguments to the async function
-    asyncio.run(
-        main(args.model, args.temperature, args.data_path, args.n, args.verbose)
-    )
+    main(args.model, args.temperature, args.data_path, args.n, args.verbose)

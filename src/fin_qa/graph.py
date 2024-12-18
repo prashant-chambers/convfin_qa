@@ -28,11 +28,7 @@ class FinancialAnalysisGraph:
     """
 
     @classmethod
-    def create_graph(
-        cls,
-        generate_agent,
-        reflect_agent,
-    ):
+    def create_graph(cls, generate_agent, reflect_agent):
         """
         Create a state graph for the financial analysis workflow.
 
@@ -44,7 +40,7 @@ class FinancialAnalysisGraph:
             Compiled graph workflow.
         """
 
-        async def generation_node(state: State) -> State:
+        def generation_node(state: State) -> State:
             """
             Node for generating financial analysis.
 
@@ -54,9 +50,9 @@ class FinancialAnalysisGraph:
             Returns:
                 State: Updated workflow state with generated message.
             """
-            return {"messages": [await generate_agent.ainvoke(state["messages"])]}
+            return {"messages": [generate_agent.invoke(state["messages"])]}
 
-        async def reflection_node(state: State) -> State:
+        def reflection_node(state: State) -> State:
             """
             Node for reflecting on and critiquing the generated analysis.
 
@@ -71,7 +67,7 @@ class FinancialAnalysisGraph:
             translated = [state["messages"][0]] + [
                 cls_map[msg.type](content=msg.content) for msg in state["messages"][1:]
             ]
-            res = await reflect_agent.ainvoke(translated)
+            res = reflect_agent.invoke(translated)
             return {"messages": [HumanMessage(content=res.content)]}
 
         def should_continue(state: State):
@@ -84,9 +80,7 @@ class FinancialAnalysisGraph:
             Returns:
                 str: Next node or END marker.
             """
-            if (len(state["messages"]) > 6) or (
-                "ALL_OK" in state["messages"][-2].content
-            ):
+            if len(state["messages"]) > 6:
                 return END
             return "reflect"
 
