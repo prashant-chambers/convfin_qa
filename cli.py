@@ -2,11 +2,15 @@
 
 import argparse
 import asyncio
+import time
 
 import mlflow
+import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
+from langchain.prompts import PromptTemplate
 from langchain_core.messages import AIMessage, HumanMessage
+from openai import BadRequestError
 
 from src.fin_qa import setup_logger
 from src.fin_qa.agents import FinancialAnalysisAgents
@@ -103,26 +107,47 @@ async def main(model: str, temperature: float, data_path: str, n: int, verbose: 
                     post_text=post_text,
                 )
 
-                response = await graph.ainvoke(
-                    {
-                        "messages": [HumanMessage(content=user_proxy_message)],
-                    },
-                    config,
-                )
+                start = time.perf_counter()
+
+                try:
+                    response = await graph.ainvoke(
+                        {
+                            "messages": [HumanMessage(content=user_proxy_message)],
+                        },
+                        config,
+                    )
+                except BadRequestError as e:
+                    logger.error(
+                        f"An unexpected BadRequestError occurred for request {data['id']}: {e}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"An unexpected error occurred for request {data['id']}: {e}"
+                    )
+
+                end = time.perf_counter()
+
+                latency = end - start
 
                 # Filter messages with json from Agent conversation
                 ai_messages = [
                     x.content
                     for x in response["messages"]
-                    if isinstance(x, AIMessage) and x.content.__contains__("json")
+                    if isinstance(x, AIMessage) and x.content.__contains__("```json")
                 ]
 
+                prompt_value = PromptTemplate(
+                    template=user_proxy_message
+                ).format_prompt()
                 # Select final json message from AI
                 if len(ai_messages) >= 1:
                     content = ai_messages[-1]
-                    parsed_content = parser.parse(fix_invalid_json(content))
+                    # parsed_content = parser.parse(fix_invalid_json(content))
+                    parsed_content = parser.parse_with_prompt(
+                        fix_invalid_json(content), prompt_value
+                    )
                     _id = data["id"]
-                    prediction = parsed_content["answer"]
+                    prediction = parsed_content.get("answer", 0)
                     if verbose:
                         logger.info(f"Record ID: {_id}")
                         logger.info(f"Question: {question}")
@@ -135,6 +160,7 @@ async def main(model: str, temperature: float, data_path: str, n: int, verbose: 
                             "question": question,
                             "ground_truth": ground_truth,
                             "prediction": prediction,
+                            "latency": latency,
                         }
                     )
 
@@ -163,44 +189,61 @@ async def main(model: str, temperature: float, data_path: str, n: int, verbose: 
         )
 
         # Compute metrics
-        exact_match_percentage = (output_df["exact_match"].mean()) * 100
+        exact_match_percentage = round((output_df["exact_match"].mean()) * 100, 2)
         logger.info(f"Exact Match: {exact_match_percentage}%")
 
-        numerical_match_percentage = (
-            output_df["numerical_match_with_units"].mean()
-        ) * 100
+        numerical_match_percentage = round(
+            (output_df["numerical_match_with_units"].mean()) * 100, 2
+        )
         logger.info(f"Numerical Match: {numerical_match_percentage}%")
 
+        mean_latency = round(output_df["latency"].mean(), 2)
+        min_latency = round(output_df["latency"].min(), 2)
+        max_latency = round(output_df["latency"].max(), 2)
+
+        latencies = output_df["latency"].values
+        p25 = round(np.percentile(latencies, 25), 2)
+        p50 = round(np.percentile(latencies, 50), 2)
+        p75 = round(np.percentile(latencies, 75), 2)
+        p95 = round(np.percentile(latencies, 95), 2)
+        p99 = round(np.percentile(latencies, 99), 2)
+
         # Log metrics
-        mlflow.log_metric("exact_match", round(exact_match_percentage, 2))
-        mlflow.log_metric(
-            "numerical_match_with_units", round(numerical_match_percentage, 2)
-        )
+        mlflow.log_metric("exact_match", exact_match_percentage)
+        mlflow.log_metric("numerical_match_with_units", numerical_match_percentage)
+        mlflow.log_metric("mean_latency", mean_latency)
+        mlflow.log_metric("min_latency", min_latency)
+        mlflow.log_metric("max_latency", max_latency)
+        mlflow.log_metric("p25", p25)
+        mlflow.log_metric("p50", p50)
+        mlflow.log_metric("p75", p75)
+        mlflow.log_metric("p95", p95)
+        mlflow.log_metric("p99", p99)
 
         # Log data
         mlflow.log_table(output_df, "output.json")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
+    arg_parser = argparse.ArgumentParser(
         description="Run a model with specific parameters asynchronously."
     )
 
     # Add arguments
-    parser.add_argument(
+    arg_parser.add_argument(
         "--model", type=str, required=True, help="The name of the model to use."
     )
-    parser.add_argument(
+    arg_parser.add_argument(
         "--temperature",
         type=temperature_range,
         required=True,
         help="The temperature setting (must be between 0.0 and 1.0).",
     )
-    parser.add_argument(
+    arg_parser.add_argument(
         "--data-path", type=str, required=True, help="The path to the input data."
     )
 
-    parser.add_argument(
+    arg_parser.add_argument(
         "--n",
         type=int,
         default=10,
@@ -208,10 +251,12 @@ if __name__ == "__main__":
         help="Number of records to be processed.",
     )
 
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose mode.")
+    arg_parser.add_argument(
+        "--verbose", action="store_true", help="Enable verbose mode."
+    )
 
     # Parse arguments
-    args = parser.parse_args()
+    args = arg_parser.parse_args()
 
     # Pass parsed arguments to the async function
     asyncio.run(
