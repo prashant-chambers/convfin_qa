@@ -10,4 +10,3 @@ repos:
         args: [--select, I, --fix]
       - id: ruff-format
         name: formatting
-        args: [--extend-ignore=C901]        
