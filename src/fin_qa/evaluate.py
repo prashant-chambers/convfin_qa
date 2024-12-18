@@ -11,7 +11,11 @@ def extract_number(string):
         number_str = match.group().replace("$", "").replace(",", "")
 
         # Convert to float or int
-        return float(number_str) if "." in number_str else int(number_str)
+        try:
+            n = float(number_str) if "." in number_str else int(number_str)
+        except ValueError:
+            n = 0
+        return n
 
 
 def exact_match(ground_truth: str, prediction: str):
