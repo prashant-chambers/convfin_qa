@@ -45,6 +45,9 @@ graph LR
 
 The graph illustrates the iterative refinement process where the Financial Analysis Agent's output is validated by the Critic Agent. If refinement is needed, the process loops back for further analysis until the desired accuracy is achieved.
 
+> [!NOTE]
+> The table data in 2D list was converted to markdown table before supplying as a context to Agent.
+
 ## Set Up
 
 ### Running the CLI App
