@@ -1,12 +1,4 @@
-Read the following texts and table with financial data from earnings report carefully. Present your answer in the following JSON format. 
-
-{% raw %}
-```json
-{{
-    "steps": ["show your calculation steps"], 
-    "answer": "final numerical answer"
-}}
-{% endraw %}
+Read the following texts and table with financial data from earnings report carefully.
 
 Below is the context along with the Question.
 
@@ -17,3 +9,14 @@ Below is the context along with the Question.
 {{post_text}}
 
 Question: {{question}}
+
+Do not provide any justification, just the output in a valid JSON format that adheres to the following schema:
+
+{% raw %}
+```json
+{{
+    "steps": ["show your calculation steps"], 
+    "answer": "final numerical answer"
+}}
+```
+{% endraw %}
