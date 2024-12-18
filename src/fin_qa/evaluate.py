@@ -22,6 +22,14 @@ def exact_match(ground_truth: str, prediction: str):
     return ground_truth == prediction
 
 
+def numerical_match(ground_truth: str, prediction: str):
+    ground_truth = extract_number(str(ground_truth).strip())
+    ground_truth_value = float(ground_truth)
+    prediction = extract_number(str(prediction).strip())
+    prediction_value = float(prediction)
+    return math.isclose(ground_truth_value, prediction_value, rel_tol=1e-1)
+
+
 def numerical_match_with_units(ground_truth: str, prediction: str):
     # Strip whitespace and identify the units
     ground_truth = str(ground_truth).strip()
